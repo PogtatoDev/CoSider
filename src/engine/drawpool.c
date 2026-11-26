@@ -39,7 +39,7 @@ int CS_DrawPoolInsertSprite(
         CS_DrawContext* ctx,
         SDL_Texture* sprite,
         SDL_Point position,
-        SDL_Point size,
+        SDL_Point* size,
         int z_idx,
         int flags
 ) {
@@ -60,8 +60,13 @@ int CS_DrawPoolInsertSprite(
 
     SDL_Rect dest_rect;
 
-    dest_rect.w = size.x;
-    dest_rect.h = size.y;
+    if (size) {
+        dest_rect.w = size->x;
+        dest_rect.h = size->y;
+    } else {
+        SDL_QueryTexture(sprite, NULL, NULL, &(dest_rect.w), &(dest_rect.h));
+    }
+
     // im back form santo domingo
     dest_rect.x = position.x;
     dest_rect.y = position.y;

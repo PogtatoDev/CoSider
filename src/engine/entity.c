@@ -33,21 +33,54 @@ int CS_push_inactive(const void* a, const void* b) {
     const CS_EntityBase* item1 = (CS_EntityBase*)a;
     const CS_EntityBase* item2 = (CS_EntityBase*)b;
 
-    if (!(item1->flags & CS_ENTITY_ACTIVE) && !(item1->flags & CS_ENTITY_ACTIVE)) return 0;
+    if (!(item1->flags & CS_ENTITY_ACTIVE) && !(item2->flags & CS_ENTITY_ACTIVE)) return 0;
     if (!(item1->flags & CS_ENTITY_ACTIVE)) return 1;
     if (!(item2->flags & CS_ENTITY_ACTIVE)) return -1;
 
     return (item1->id - item2->id);
 }
 
-int CS_PlaceEntity(
+CS_EntityBase* CS_EntityGetFromID(CS_EntityContext* ctx, int id) {
+    for (int i = 0; i < ctx->active_entities; i++) {
+        if (ctx->entity_pool[i].id == id) {
+            return &(ctx->entity_pool[i]);
+    }
+
+    return NULL;
+}
+
+int CS_entity_finalize_creation(
+        CS_EntityBase* entity,
+        SDL_Point position,
+        int type,
+        int draw_item_id,
+        int flags,
+        void (*ready) (struct CS_EntityBase*),
+        void (*update)(struct CS_EntityBase*, float dt),
+        CS_EntityContext* ctx
+) {
+    entity->type = type;
+    entity->position = position;
+    entity->flags |= (CS_ENTITY_ACTIVE | flags);
+    entity->draw_item_id = draw_item_id;
+    entity->ready = ready;
+    entity->update = update;
+    ctx->active_entities += 1;
+    entity->ready(entity);
+
+    int id = entity->id;
+    qsort(ctx->entity_pool, ctx->entity_pool_size, sizeof(CS_EntityBase), CS_push_inactive);
+    return id;
+}
+
+int CS_EntityCreate(
         CS_EntityContext* ctx,
         SDL_Point position,
         int type,
         int draw_item_id,
         int flags,
         void (*ready) (struct CS_EntityBase*),
-        void (*update)(struct CS_EntityBase*)
+        void (*update)(struct CS_EntityBase*, float dt)
 ) {
     int idx = -1;
     for (int i = 0; i < ctx->entity_pool_size; i++) {
@@ -62,19 +95,21 @@ int CS_PlaceEntity(
         exit(1);
     }
 
-    ctx->entity_pool[idx].type = type;
-    ctx->entity_pool[idx].position = position;
-    ctx->entity_pool[idx].flags |= CS_ENTITY_ACTIVE;
-    ctx->entity_pool[idx].draw_item_id = draw_item_id;
-
-    return ctx->entity_pool[idx].id;
+    return CS_entity_finalize_creation(
+            &(ctx->entity_pool[idx]),
+            position, type,
+            draw_item_id, flags,
+            ready, update,
+            ctx
+    );
 }
 
-int CS_PlaceEntityWithSprite(
+int CS_EntityCreateWithSprite(
         CS_EntityContext* entity_ctx,
         CS_DrawContext* draw_ctx,
         SDL_Texture* sprite,
         SDL_Point position,
+        SDL_Point* size,
 
         int draw_item_flags,
         int entity_flags,
@@ -82,7 +117,7 @@ int CS_PlaceEntityWithSprite(
 
         int type,
         void (*ready) (struct CS_EntityBase*),
-        void (*update)(struct CS_EntityBase*)
+        void (*update)(struct CS_EntityBase*, float dt)
 ) {
     int idx = -1;
     for (int i = 0; i < entity_ctx->entity_pool_size; i++) {
@@ -97,27 +132,24 @@ int CS_PlaceEntityWithSprite(
         exit(1);
     }
 
-    entity_ctx->entity_pool[idx].type = type;
-    entity_ctx->entity_pool[idx].position = position;
-    entity_ctx->entity_pool[idx].flags |= CS_ENTITY_ACTIVE;
-
     int w, h;
-    SDL_QueryTexture(sprite, NULL, NULL, &w, &h);
 
-    int id = CS_DrawPoolInsertSprite(
+    int draw_item_id = CS_DrawPoolInsertSprite(
             draw_ctx,
             sprite,
             position,
-            (SDL_Point) { w, h },
+            size,
             z_idx,
             draw_item_flags
     );
 
-    entity_ctx->entity_pool[idx].draw_item_id = id;
-    id = entity_ctx->entity_pool[idx].id;
-
-    qsort(entity_ctx->entity_pool, entity_ctx->entity_pool_size, sizeof(CS_EntityBase), CS_push_inactive);
-    return entity_ctx->entity_pool[idx].id;
+    return CS_entity_finalize_creation(
+            &(entity_ctx->entity_pool[idx]),
+            position, type,
+            draw_item_id, entity_flags,
+            ready, update,
+            entity_ctx
+    );
 }
 
 #endif
