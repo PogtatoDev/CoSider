@@ -1,6 +1,6 @@
 # CoSider
 <p align="center">
-  <img width="640" height="320" alt="dfg" src="https://github.com/user-attachments/assets/c05f336a-510a-4b0b-b675-67760c262f1c" />
+  <img width="640" height="320" alt="dfg" src="https://i.postimg.cc/9F94GW0V/dfg.png" />
 </p>
 <h1 align="center">The greatest game engine of the generation*</h1>
 
