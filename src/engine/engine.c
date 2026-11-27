@@ -2,14 +2,12 @@
 #define __CS_ENGINE__
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_keyboard.h>
 #include <stdlib.h>
 
+#include "windowctx.c"
+#include "room.c"
 #include "drawitem.c"
 #include "entity.c"
-#include "room.c"
-#include "windowctx.c"
 
 typedef struct {
     CS_WindowContext window_ctx;

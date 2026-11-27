@@ -2,8 +2,6 @@
 #define __GAME__
 
 #include "engine/drawitem.c"
-#include "engine/drawpool.c"
-#include "engine/room.c"
 #include <SDL2/SDL_image.h>
 #define WINDOW_W 640
 #define WINDOW_H 480
@@ -21,13 +19,12 @@ void game_ready(CS_Game* game) {
     SDL_Texture* hi = IMG_LoadTexture(game->window_ctx.renderer, "assets/sprite/hi.png");
     if (hi == NULL) { exit(1); }
 
-    int hi2 =
-//        CS_DrawPoolInsertSprite(
-//            &(game->draw_ctx),
-//            hi,
-//            (SDL_Point) { 50, 50 }, (SDL_Point) { -1, -1 },
-//            6767, CS_DRAWITEM_ALWAYS_ON_TOP
-//    );
+    int hi2 = CS_DrawPoolInsertSprite(
+            &(game->draw_ctx),
+            hi,
+            (SDL_Point) { 50, 50 }, NULL,
+            0, CS_DRAWITEM_ALWAYS_ON_TOP
+    );
 
     CS_DrawItem* hi3 = CS_DrawPoolGetItemFromID(&(game->draw_ctx), hi2);
 }

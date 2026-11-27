@@ -1,15 +1,13 @@
 #ifndef __CS_ENTITY__
 #define __CS_ENTITY__
 
-#include "drawpool.c"
-
 #include <SDL2/SDL.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define CS_ENTITY_COLLIDING (1 << 1)
 #define CS_ENTITY_NOCLIP    (1 << 2)
 #define CS_ENTITY_ACTIVE    (1 << 3)
+
+#include "drawpool.c"
 
 typedef struct CS_EntityBase {
     SDL_Point position;
@@ -44,6 +42,7 @@ CS_EntityBase* CS_EntityGetFromID(CS_EntityContext* ctx, int id) {
     for (int i = 0; i < ctx->active_entities; i++) {
         if (ctx->entity_pool[i].id == id) {
             return &(ctx->entity_pool[i]);
+        }
     }
 
     return NULL;

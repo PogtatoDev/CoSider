@@ -138,7 +138,7 @@ void CS_DrawPoolLoadTilemap(
             id = CS_DrawPoolInsertSprite(
                     draw_ctx,
                     tileset->textures[tilemap->tiles[i]],
-                    pos, tile_size, 0, 0
+                    pos, &tile_size, 1, 0
             );
         }
 
