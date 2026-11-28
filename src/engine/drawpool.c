@@ -1,6 +1,7 @@
 #ifndef __CS_DRAWPOOL__
 #define __CS_DRAWPOOL__
 
+#include <SDL2/SDL_rect.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 
@@ -38,8 +39,8 @@ void CS_draw_pool_finalize_insertion(
 int CS_DrawPoolInsertSprite(
         CS_DrawContext* ctx,
         SDL_Texture* sprite,
-        SDL_Point position,
-        SDL_Point* size,
+        SDL_FPoint position,
+        SDL_FPoint* size,
         int z_idx,
         int flags
 ) {
@@ -58,29 +59,32 @@ int CS_DrawPoolInsertSprite(
 
     // seeyuhis
 
-    SDL_Rect dest_rect;
+    SDL_Rect temp;
 
     if (size) {
-        dest_rect.w = size->x;
-        dest_rect.h = size->y;
+        temp.w = size->x;
+        temp.h = size->y;
     } else {
-        SDL_QueryTexture(sprite, NULL, NULL, &(dest_rect.w), &(dest_rect.h));
+        SDL_QueryTexture(sprite, NULL, NULL, &(temp.w), &(temp.h));
     }
 
-    // im back form santo domingo
-    dest_rect.x = position.x;
-    dest_rect.y = position.y;
+    SDL_FRect dest_rect = (SDL_FRect) {
+        .w = temp.w,
+        .h = temp.h,
+        .x = position.x,
+        .y = position.y,
+    };
 
-    ctx->draw_pool[idx].type = CS_DRAWITEM_SPRITE;
-    ctx->draw_pool[idx].Sprite.sprite = sprite;
-    ctx->draw_pool[idx].Sprite.dest_rect = dest_rect;
+    ctx->draw_pool[idx].type   = CS_DRAWITEM_SPRITE;
+    ctx->draw_pool[idx].sprite = sprite;
+    ctx->draw_pool[idx].rect   = dest_rect;
 
     int id = ctx->draw_pool[idx].id;
     CS_DrawItem* temp_drawitem = &(ctx->draw_pool[idx]);
 
     CS_draw_pool_finalize_insertion(ctx, z_idx, idx, flags);
 
-#ifdef DEBUG
+#ifdef __CS_DEBUG__
     printf(
             "created sprite CS_DrawItem\n pos: %d %d\n size: %d %d\n texture: %p\n id: %d\n CS_DrawItem: %p\n",
             position.x, position.y,
@@ -95,7 +99,7 @@ int CS_DrawPoolInsertSprite(
 
 int CS_DrawPoolInsertRect(
         CS_DrawContext* ctx,
-        SDL_Rect* rect,
+        SDL_FRect* rect,
         SDL_Color color,
         int z_idx,
         int flags
@@ -113,9 +117,9 @@ int CS_DrawPoolInsertRect(
         exit(-1);
     }
 
-    ctx->draw_pool[idx].type = CS_DRAWITEM_RECT;
-    ctx->draw_pool[idx].Rect.rect = *rect;
-    ctx->draw_pool[idx].Rect.rect_color = color;
+    ctx->draw_pool[idx].type       = CS_DRAWITEM_RECT;
+    ctx->draw_pool[idx].rect       = *rect;
+    ctx->draw_pool[idx].rect_color = color;
 
     int id = ctx->draw_pool[idx].id;
     CS_DrawItem* temp_drawitem = &(ctx->draw_pool[idx]);

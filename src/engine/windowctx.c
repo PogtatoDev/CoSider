@@ -16,7 +16,7 @@ typedef struct {
     int height;
 
     float dt;
-    float last_now;
+    uint64_t last_now;
 } CS_WindowContext;
 
 #endif

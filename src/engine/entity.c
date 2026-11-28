@@ -10,16 +10,18 @@
 
 #include "drawpool.c"
 
+typedef struct CS_Game CS_Game;
+
 typedef struct CS_EntityBase {
-    SDL_Point position;
-    SDL_Point sizeNOTINBYTES;
+    SDL_FPoint position;
+    SDL_FPoint sizeNOTINBYTES;
 
     int flags;
     int draw_item_id;
     int id;
 
-    void (*ready) (struct CS_EntityBase*);
-    void (*update)(struct CS_EntityBase*, float dt);
+    void (*ready) (struct CS_EntityBase*, CS_Game*);
+    void (*update)(struct CS_EntityBase*, CS_Game*, float);
 } CS_EntityBase;
 
 typedef struct {
@@ -51,13 +53,14 @@ CS_EntityBase* CS_EntityGetFromID(CS_EntityContext* ctx, int id) {
 
 int CS_entity_finalize_creation(
         CS_EntityBase* entity,
-        SDL_Point position,
-        SDL_Point size,
+        SDL_FPoint position,
+        SDL_FPoint size,
         int draw_item_id,
         int flags,
-        void (*ready) (struct CS_EntityBase*),
-        void (*update)(struct CS_EntityBase*, float dt),
-        CS_EntityContext* ctx
+        void (*ready) (struct CS_EntityBase*, CS_Game* game),
+        void (*update)(struct CS_EntityBase*, CS_Game*, float),
+        CS_EntityContext* ctx,
+        CS_Game* game
 ) {
     entity->position = position;
     entity->sizeNOTINBYTES = size;
@@ -66,7 +69,7 @@ int CS_entity_finalize_creation(
     entity->ready = ready;
     entity->update = update;
     ctx->active_entities += 1;
-    entity->ready(entity);
+    entity->ready(entity, game);
 
     int id = entity->id;
     qsort(ctx->entity_pool, ctx->entity_pool_size, sizeof(CS_EntityBase), CS_push_inactive);
@@ -74,18 +77,19 @@ int CS_entity_finalize_creation(
 }
 
 int CS_EntityCreate(
+        CS_Game* game,
         CS_EntityContext* entity_ctx,
         CS_DrawContext* draw_ctx,
         SDL_Texture* sprite,
-        SDL_Point position,
-        SDL_Point* size,
+        SDL_FPoint position,
+        SDL_FPoint* size,
 
         int draw_item_flags,
         int entity_flags,
         int z_idx,
 
-        void (*ready) (struct CS_EntityBase*),
-        void (*update)(struct CS_EntityBase*, float dt)
+        void (*ready) (struct CS_EntityBase*, CS_Game*),
+        void (*update)(struct CS_EntityBase*, CS_Game*, float)
 ) {
     int idx = -1;
     for (int i = 0; i < entity_ctx->entity_pool_size; i++) {
@@ -100,7 +104,6 @@ int CS_EntityCreate(
         exit(1);
     }
 
-    int w, h;
 
     int draw_item_id = CS_DrawPoolInsertSprite(
             draw_ctx,
@@ -111,13 +114,15 @@ int CS_EntityCreate(
             draw_item_flags
     );
 
+    SDL_FRect* rect = &CS_DrawPoolGetItemFromID(draw_ctx, draw_item_id)->rect;
     return CS_entity_finalize_creation(
             &(entity_ctx->entity_pool[idx]),
-            position, (SDL_Point) { w, h },
+            position, (SDL_FPoint) { rect->w, rect->h },
             draw_item_id, entity_flags,
             ready, update,
-            entity_ctx
+            entity_ctx, game
     );
+
 }
 
 

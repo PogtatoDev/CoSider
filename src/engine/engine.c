@@ -2,41 +2,28 @@
 #define __CS_ENGINE__
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_scancode.h>
 #include <SDL2/SDL_timer.h>
 #include <stdlib.h>
 
 #include "drawpool.c"
 #include "windowctx.c"
-#include "room.c"
 #include "drawitem.c"
 #include "entity.c"
 #include "utils.c"
-
-typedef struct {
-    CS_WindowContext window_ctx;
-    CS_DrawContext draw_ctx;
-    CS_EntityContext entity_ctx;
-
-    CS_TileMapConfig tilemap_cfg;
-
-    int* input_buffer;
-
-    int8_t is_open;
-} CS_Game;
+#include "game.c"
 
 void CS_PollEvents(CS_Game* game) {
-    int i = 0;
+    memcpy(game->keys_notnow, game->keys_now, SDL_NUM_SCANCODES);
+
     while (SDL_PollEvent(&game->window_ctx.event)) {
         if (game->window_ctx.event.type == SDL_QUIT) {
             game->is_open = 0;
         }
-
-        if (game->window_ctx.event.type == SDL_KEYDOWN) {
-            game->input_buffer[i] = game->window_ctx.event.key.keysym.sym;
-        }
     }
 
-    memset(game->input_buffer, 0, sizeof(int) * 16);
+    const uint8_t* texas = SDL_GetKeyboardState(NULL);
+    memcpy(game->keys_now, texas, SDL_NUM_SCANCODES);
 
     SDL_GetMouseState(&(game->window_ctx.mouse_pos.x), &(game->window_ctx.mouse_pos.y));
 }
@@ -44,8 +31,8 @@ void CS_PollEvents(CS_Game* game) {
 void CS_Update(CS_Game* game) {
     CS_PollEvents(game);
 
-    int now = SDL_GetPerformanceCounter();
-    game->window_ctx.dt = (now - game->window_ctx.last_now) / SDL_GetPerformanceFrequency();
+    uint64_t now = SDL_GetPerformanceCounter();
+    game->window_ctx.dt = (float)(now - game->window_ctx.last_now) / (float)SDL_GetPerformanceFrequency();
     game->window_ctx.last_now = now;
     if (game->window_ctx.dt > 0.05f) game->window_ctx.dt = 0.05f;
 
@@ -55,27 +42,16 @@ void CS_Update(CS_Game* game) {
         CS_EntityBase* current_entity = &game->entity_ctx.entity_pool[i];
 
         if (current_entity->update) {
-            current_entity->update(current_entity, game->window_ctx.dt);
+            current_entity->update(current_entity, game, game->window_ctx.dt);
         }
 
         CS_DrawItem* draw_item = CS_DrawPoolGetItemFromID(&(game->draw_ctx), current_entity->draw_item_id);
         if (!(draw_item->flags & CS_DRAWITEM_ACTIVE)) continue;
 
-        switch (draw_item->type) {
-            case CS_DRAWITEM_SPRITE:
-                draw_item->Sprite.dest_rect.w = current_entity->sizeNOTINBYTES.x;
-                draw_item->Sprite.dest_rect.h = current_entity->sizeNOTINBYTES.y;
-                draw_item->Sprite.dest_rect.x = current_entity->position.x;
-                draw_item->Sprite.dest_rect.y = current_entity->position.y;
-                break;
-
-            case CS_DRAWITEM_RECT:
-                draw_item->Rect.rect.w = current_entity->sizeNOTINBYTES.x;
-                draw_item->Rect.rect.h = current_entity->sizeNOTINBYTES.y;
-                draw_item->Rect.rect.x = current_entity->position.x;
-                draw_item->Rect.rect.y = current_entity->position.y;
-                break;
-        }
+        draw_item->rect.w = current_entity->sizeNOTINBYTES.x;
+        draw_item->rect.h = current_entity->sizeNOTINBYTES.y;
+        draw_item->rect.x = current_entity->position.x;
+        draw_item->rect.y = current_entity->position.y;
     }
 }
 
@@ -83,7 +59,7 @@ void CS_Update(CS_Game* game) {
 void CS_finalize_drawing(CS_DrawItem* draw_item, CS_WindowContext* window_ctx) {
     switch (draw_item->type) {
         case CS_DRAWITEM_RECT: {
-            SDL_Color* c = &(draw_item->Rect.rect_color);
+            SDL_Color* c = &(draw_item->rect_color);
 
             SDL_SetRenderDrawColor(
                     window_ctx->renderer,
@@ -93,16 +69,16 @@ void CS_finalize_drawing(CS_DrawItem* draw_item, CS_WindowContext* window_ctx) {
                     c->a
             );
 
-            SDL_RenderFillRect(window_ctx->renderer, &(draw_item->Rect.rect));
+            SDL_RenderFillRectF(window_ctx->renderer, &(draw_item->rect));
             break;
         }
 
         case CS_DRAWITEM_SPRITE: {
-            SDL_RenderCopy(
+            SDL_RenderCopyF(
                     window_ctx->renderer,
-                    draw_item->Sprite.sprite,
+                    draw_item->sprite,
                     NULL,
-                    &(draw_item->Sprite.dest_rect)
+                    &(draw_item->rect)
             );
             break;
          }
@@ -126,7 +102,7 @@ void CS_Draw(CS_Game* game) {
         CS_DrawItem* current_draw_item = &(game->draw_ctx.draw_pool[i]);
 
         if (current_draw_item->flags & CS_DRAWITEM_ALWAYS_ON_TOP) {
-            always_on_top_buffer[i] = current_draw_item;
+            always_on_top_buffer[always_on_top_buffer_idx] = current_draw_item;
             always_on_top_buffer_idx += 1;
             continue;
         }
@@ -134,7 +110,7 @@ void CS_Draw(CS_Game* game) {
         CS_finalize_drawing(current_draw_item, &(game->window_ctx));
     }
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < sizeof(always_on_top_buffer) / sizeof(always_on_top_buffer[0]); i++) {
         if (always_on_top_buffer[i]) {
             CS_finalize_drawing(always_on_top_buffer[i], &(game->window_ctx));
         }
@@ -198,7 +174,6 @@ void CS_InitGame(
         int width, int height,
         char* title,
         int draw_pool_size, int entity_pool_size,
-        int input_buffer_size,
         int tile_size
 ) {
     CS_init_window_ctx(&game->window_ctx, width, height, title);
@@ -211,8 +186,6 @@ void CS_InitGame(
 
     game->window_ctx.base_path = (char*)CS_Alloc(128 * sizeof(char));
     strncpy(game->window_ctx.base_path, SDL_GetBasePath(), 128);
-
-    game->input_buffer = (int*)CS_Alloc(input_buffer_size * sizeof(int));
 
     game->is_open = 1;
 }

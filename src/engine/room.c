@@ -125,12 +125,12 @@ void CS_DrawPoolLoadTilemap(
         int window_w
 ) {
 
-    SDL_Point tile_size = (SDL_Point) { tilemap->tile_size , tilemap->tile_size };
+    SDL_FPoint tile_size = (SDL_FPoint) { tilemap->tile_size , tilemap->tile_size };
     for (int i = 0; i < tilemap->tile_arr_size; i++) {
         int x = i % tilemap->row_size;
         int y = i / tilemap->row_size;
 
-        SDL_Point pos = (SDL_Point) {
+        SDL_FPoint pos = (SDL_FPoint) {
             tilemap->tile_size * x,
             tilemap->tile_size * y
         };

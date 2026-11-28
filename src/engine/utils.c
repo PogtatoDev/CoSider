@@ -8,6 +8,9 @@
 
 #include "windowctx.c"
 
+#define CS_ENTITY_UPDATE_ARGS CS_EntityBase* base, CS_Game* game, float dt
+#define CS_ENTITY_READY_ARGS  CS_EntityBase* base, CS_Game* game
+
 static inline void* CS_Alloc(size_t bytes) {
     void* p = malloc(bytes);
     if (p == NULL) exit(1);
@@ -47,6 +50,22 @@ static inline FILE* CS_OpenFile(const char* filename, const char* modes) {
 
 static inline void CS_CloseFile(FILE* f) {
     if (f) fclose(f);
+}
+
+static inline int CS_IsKeyDown(uint8_t* keys_now, SDL_Scancode key) {
+    if (keys_now[key]) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static inline int CS_IsKeyPressed(uint8_t* keys_now, uint8_t* keys_notnow, SDL_Scancode key) {
+    if (keys_now[key] && !keys_notnow[key]) {
+        return 1;
+    }
+
+    return 0;
 }
 
 #endif

@@ -10,16 +10,11 @@
 #define CS_DRAWITEM_SPRITE 0
 
 typedef struct {
-    union {
-        struct {
-            SDL_Rect rect;
-            SDL_Color rect_color;
-        } Rect;
+    SDL_FRect rect;
 
-        struct {
-            SDL_Texture* sprite;
-            SDL_Rect dest_rect;
-        } Sprite;
+    union {
+        SDL_Color rect_color;
+        SDL_Texture* sprite;
     };
 
     int flags;
