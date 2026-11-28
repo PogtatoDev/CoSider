@@ -1,6 +1,7 @@
 #ifndef __CS_ENTITY__
 #define __CS_ENTITY__
 
+#include "drawitem.c"
 #include <SDL2/SDL.h>
 
 #define CS_ENTITY_COLLIDING (1 << 1)
@@ -11,10 +12,10 @@
 
 typedef struct CS_EntityBase {
     SDL_Point position;
+    SDL_Point sizeNOTINBYTES;
 
     int flags;
     int draw_item_id;
-    int type;
     int id;
 
     void (*ready) (struct CS_EntityBase*);
@@ -51,15 +52,15 @@ CS_EntityBase* CS_EntityGetFromID(CS_EntityContext* ctx, int id) {
 int CS_entity_finalize_creation(
         CS_EntityBase* entity,
         SDL_Point position,
-        int type,
+        SDL_Point size,
         int draw_item_id,
         int flags,
         void (*ready) (struct CS_EntityBase*),
         void (*update)(struct CS_EntityBase*, float dt),
         CS_EntityContext* ctx
 ) {
-    entity->type = type;
     entity->position = position;
+    entity->sizeNOTINBYTES = size;
     entity->flags |= (CS_ENTITY_ACTIVE | flags);
     entity->draw_item_id = draw_item_id;
     entity->ready = ready;
@@ -73,37 +74,6 @@ int CS_entity_finalize_creation(
 }
 
 int CS_EntityCreate(
-        CS_EntityContext* ctx,
-        SDL_Point position,
-        int type,
-        int draw_item_id,
-        int flags,
-        void (*ready) (struct CS_EntityBase*),
-        void (*update)(struct CS_EntityBase*, float dt)
-) {
-    int idx = -1;
-    for (int i = 0; i < ctx->entity_pool_size; i++) {
-        if (!(ctx->entity_pool[i].flags & CS_ENTITY_ACTIVE)) {
-            idx = i;
-            break;
-        }
-    }
-
-    if (idx == -1) {
-        printf("br.c\n");
-        exit(1);
-    }
-
-    return CS_entity_finalize_creation(
-            &(ctx->entity_pool[idx]),
-            position, type,
-            draw_item_id, flags,
-            ready, update,
-            ctx
-    );
-}
-
-int CS_EntityCreateWithSprite(
         CS_EntityContext* entity_ctx,
         CS_DrawContext* draw_ctx,
         SDL_Texture* sprite,
@@ -114,7 +84,6 @@ int CS_EntityCreateWithSprite(
         int entity_flags,
         int z_idx,
 
-        int type,
         void (*ready) (struct CS_EntityBase*),
         void (*update)(struct CS_EntityBase*, float dt)
 ) {
@@ -144,11 +113,12 @@ int CS_EntityCreateWithSprite(
 
     return CS_entity_finalize_creation(
             &(entity_ctx->entity_pool[idx]),
-            position, type,
+            position, (SDL_Point) { w, h },
             draw_item_id, entity_flags,
             ready, update,
             entity_ctx
     );
 }
+
 
 #endif

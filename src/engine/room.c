@@ -7,6 +7,7 @@
 
 #include "drawpool.c"
 #include "windowctx.c"
+#include "utils.c"
 
 #define FULL_PATH_SIZE 128 + sizeof("assets/tilemap/img/") + sizeof(fuck) + sizeof(line)
 
@@ -31,7 +32,7 @@ typedef struct {
 } CS_TileMapConfig;
 
 CS_TileSet* CS_CreateTileset(char *filename, CS_WindowContext* window_ctx) {
-    FILE* tileset_f = fopen(filename, "r");
+    FILE* tileset_f = CS_OpenFile(filename, "r");
     if (tileset_f == NULL) {
         printf("HI file doesnt exist edition\n");
         exit(1);
@@ -50,7 +51,7 @@ CS_TileSet* CS_CreateTileset(char *filename, CS_WindowContext* window_ctx) {
     strncpy(fuck, line + 5, 16);
 
     int count = 0;
-    char** paths = malloc(32 * sizeof(char*));
+    char** paths = CS_Alloc(32 * sizeof(char*));
     while (fgets(line, sizeof(line), tileset_f))  {
         if (isspace(line[0])) continue;
         line[strcspn(line, "\n")] = 0;
@@ -63,15 +64,16 @@ CS_TileSet* CS_CreateTileset(char *filename, CS_WindowContext* window_ctx) {
         count++;
     }
 
-    fclose(tileset_f);
+    CS_CloseFile(tileset_f);
 
-    SDL_Texture** textures = SDL_malloc((1 + count) * sizeof(SDL_Texture*));
+    SDL_Texture** textures = CS_Alloc((1 + count) * sizeof(SDL_Texture*));
     for (int i = 0; i < count; i++) {
-        textures[i + 1] = IMG_LoadTexture(window_ctx->renderer, paths[i]);
+        textures[i + 1] = CS_LoadSprite(paths[i], window_ctx);
     }
+
     textures[0] = NULL;
 
-    CS_TileSet* fuckmebro = malloc(sizeof(CS_TileSet));
+    CS_TileSet* fuckmebro = CS_Alloc(sizeof(CS_TileSet));
     fuckmebro->count = count;
     fuckmebro->textures = textures;
 
@@ -88,7 +90,7 @@ void CS_DestroyTileset(CS_TileSet* tileset) {
 }
 
 CS_TileMap* CS_CreateTileMap(char* filename, CS_TileMapConfig* cfg) {
-    FILE* tilemap_f = fopen(filename, "r");
+    FILE* tilemap_f = CS_OpenFile(filename, "r");
     if (tilemap_f == NULL) {
         printf("HI file doesnt exist tilemap edition\n");
         exit(1);
@@ -96,7 +98,7 @@ CS_TileMap* CS_CreateTileMap(char* filename, CS_TileMapConfig* cfg) {
 
     char line[16];
     const int TILE_ARR_SIZE = (cfg->h / cfg->tile_size) * (cfg->w / cfg->tile_size);
-    int* tiles = malloc(sizeof(int) * TILE_ARR_SIZE);
+    int* tiles = CS_Alloc(sizeof(int) * TILE_ARR_SIZE);
     int i = 0;
     while (fgets(line, sizeof(line), tilemap_f)) {
         line[strcspn(line, "\n")] = 0;
@@ -104,13 +106,13 @@ CS_TileMap* CS_CreateTileMap(char* filename, CS_TileMapConfig* cfg) {
         i++;
     }
 
-    fclose(tilemap_f);
+    CS_CloseFile(tilemap_f);
 
-    CS_TileMap* tilemap = malloc(sizeof(CS_TileMap));
+    CS_TileMap* tilemap = CS_Alloc(sizeof(CS_TileMap));
     tilemap->row_size = cfg->h / cfg->tile_size;
     tilemap->tile_size = cfg->tile_size;
     tilemap->tiles = tiles;
-    tilemap->tile_draw_pool_ids = malloc(sizeof(int) * TILE_ARR_SIZE);
+    tilemap->tile_draw_pool_ids = CS_Alloc(sizeof(int) * TILE_ARR_SIZE);
     tilemap->tile_arr_size = TILE_ARR_SIZE;
 
     return tilemap;

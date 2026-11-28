@@ -7,7 +7,7 @@ int main(void) {
     game_ready(game);
 
     while (game->is_open) {
-        CS_Update(game, game->window_ctx.display_mode.refresh_rate);
+        CS_Update(game);
         CS_Draw(game);
     }
 

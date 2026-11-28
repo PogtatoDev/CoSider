@@ -2,12 +2,15 @@
 #define __CS_ENGINE__
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_timer.h>
 #include <stdlib.h>
 
+#include "drawpool.c"
 #include "windowctx.c"
 #include "room.c"
 #include "drawitem.c"
 #include "entity.c"
+#include "utils.c"
 
 typedef struct {
     CS_WindowContext window_ctx;
@@ -38,8 +41,13 @@ void CS_PollEvents(CS_Game* game) {
     SDL_GetMouseState(&(game->window_ctx.mouse_pos.x), &(game->window_ctx.mouse_pos.y));
 }
 
-void CS_Update(CS_Game* game, float dt_ms) {
+void CS_Update(CS_Game* game) {
     CS_PollEvents(game);
+
+    int now = SDL_GetPerformanceCounter();
+    game->window_ctx.dt = (now - game->window_ctx.last_now) / SDL_GetPerformanceFrequency();
+    game->window_ctx.last_now = now;
+    if (game->window_ctx.dt > 0.05f) game->window_ctx.dt = 0.05f;
 
     for (int i = 0; i < game->entity_ctx.entity_pool_size; i++) {
         if (!(game->entity_ctx.entity_pool[i].flags & CS_ENTITY_ACTIVE)) continue;
@@ -47,12 +55,30 @@ void CS_Update(CS_Game* game, float dt_ms) {
         CS_EntityBase* current_entity = &game->entity_ctx.entity_pool[i];
 
         if (current_entity->update) {
-            current_entity->update(current_entity, dt_ms);
+            current_entity->update(current_entity, game->window_ctx.dt);
+        }
+
+        CS_DrawItem* draw_item = CS_DrawPoolGetItemFromID(&(game->draw_ctx), current_entity->draw_item_id);
+        if (!(draw_item->flags & CS_DRAWITEM_ACTIVE)) continue;
+
+        switch (draw_item->type) {
+            case CS_DRAWITEM_SPRITE:
+                draw_item->Sprite.dest_rect.w = current_entity->sizeNOTINBYTES.x;
+                draw_item->Sprite.dest_rect.h = current_entity->sizeNOTINBYTES.y;
+                draw_item->Sprite.dest_rect.x = current_entity->position.x;
+                draw_item->Sprite.dest_rect.y = current_entity->position.y;
+                break;
+
+            case CS_DRAWITEM_RECT:
+                draw_item->Rect.rect.w = current_entity->sizeNOTINBYTES.x;
+                draw_item->Rect.rect.h = current_entity->sizeNOTINBYTES.y;
+                draw_item->Rect.rect.x = current_entity->position.x;
+                draw_item->Rect.rect.y = current_entity->position.y;
+                break;
         }
     }
-
-    SDL_Delay(dt_ms);
 }
+
 
 void CS_finalize_drawing(CS_DrawItem* draw_item, CS_WindowContext* window_ctx) {
     switch (draw_item->type) {
@@ -121,7 +147,7 @@ void CS_Draw(CS_Game* game) {
 
 void CS_init_draw_ctx(CS_DrawContext* ctx, int pool_size) {
     ctx->draw_pool_size = pool_size;
-    ctx->draw_pool = (CS_DrawItem*)malloc(sizeof(CS_DrawItem) * ctx->draw_pool_size);
+    ctx->draw_pool = (CS_DrawItem*)CS_Alloc(sizeof(CS_DrawItem) * ctx->draw_pool_size);
     ctx->active_draw_items = 0;
 
     for (int i = 0; i < ctx->draw_pool_size; i++) {
@@ -132,7 +158,7 @@ void CS_init_draw_ctx(CS_DrawContext* ctx, int pool_size) {
 
 void CS_init_entity_ctx(CS_EntityContext* ctx, int pool_size) {
     ctx->entity_pool_size = pool_size;
-    ctx->entity_pool = (CS_EntityBase*)malloc(sizeof(CS_EntityBase) * ctx->entity_pool_size);
+    ctx->entity_pool = (CS_EntityBase*)CS_Alloc(sizeof(CS_EntityBase) * ctx->entity_pool_size);
     ctx->active_entities = 0;
 
     for (int i = 0; i < ctx->entity_pool_size; i++) {
@@ -142,7 +168,11 @@ void CS_init_entity_ctx(CS_EntityContext* ctx, int pool_size) {
 }
 
 void CS_init_window_ctx(CS_WindowContext* ctx, int width, int height, char* title) {
-    SDL_Init(SDL_INIT_VIDEO);
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        printf("shits fucked\n");
+        exit(67);
+    }
+
     IMG_Init(IMG_INIT_PNG);
 
     ctx->window = SDL_CreateWindow(
@@ -152,37 +182,39 @@ void CS_init_window_ctx(CS_WindowContext* ctx, int width, int height, char* titl
             SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
 
+    ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
     ctx->height = height;
     ctx->width = width;
 
-    ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
     SDL_RenderSetLogicalSize(ctx->renderer, width, height);
     SDL_GetDesktopDisplayMode(-1, &ctx->display_mode);
+
+    ctx->last_now = SDL_GetPerformanceCounter();
 }
 
 void CS_InitGame(
         CS_Game* game,
         int width, int height,
-        char* name,
+        char* title,
         int draw_pool_size, int entity_pool_size,
         int input_buffer_size,
         int tile_size
 ) {
-    CS_init_window_ctx(&game->window_ctx, 640, 480, "CoSider");
-    CS_init_draw_ctx(&game->draw_ctx, 512);
-    CS_init_entity_ctx(&game->entity_ctx, 256);
+    CS_init_window_ctx(&game->window_ctx, width, height, title);
+    CS_init_draw_ctx(&game->draw_ctx, draw_pool_size);
+    CS_init_entity_ctx(&game->entity_ctx, entity_pool_size);
 
     game->tilemap_cfg.h = game->window_ctx.width;
     game->tilemap_cfg.w = game->window_ctx.height;
-    game->tilemap_cfg.tile_size = 20;
+    game->tilemap_cfg.tile_size = tile_size;
 
-    game->window_ctx.base_path = malloc(128 * sizeof(char));
+    game->window_ctx.base_path = (char*)CS_Alloc(128 * sizeof(char));
     strncpy(game->window_ctx.base_path, SDL_GetBasePath(), 128);
 
-    game->input_buffer = malloc(16 * sizeof(int));
+    game->input_buffer = (int*)CS_Alloc(input_buffer_size * sizeof(int));
 
     game->is_open = 1;
 }
-
 
 #endif

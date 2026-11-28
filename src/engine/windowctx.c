@@ -14,6 +14,9 @@ typedef struct {
 
     int width;
     int height;
+
+    float dt;
+    float last_now;
 } CS_WindowContext;
 
 #endif
